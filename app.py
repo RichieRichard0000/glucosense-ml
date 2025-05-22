@@ -157,9 +157,22 @@ def generate_features(df):
     return features
 
 def remove_irrelevant_data(df):
-    df.columns = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'Device', 'Time']
-    df = df.drop(['SSID', 'Device', 'H', 'T', 'Time'], axis=1)
+    # Handle the leading empty column that's common in your CSV format
+    if df.columns[0] == '' or pd.isna(df.columns[0]) or str(df.columns[0]).strip() == '':
+        df = df.drop(df.columns[0], axis=1)
+    
+    # Now we should have 14 columns
+    expected_cols = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'device', 'time']
+    
+    if len(df.columns) == len(expected_cols):
+        df.columns = expected_cols
+        # Drop irrelevant columns (note: using lowercase 'device' and 'time')
+        df = df.drop(['SSID', 'device', 'H', 'T', 'time'], axis=1)
+    else:
+        raise ValueError(f"Expected {len(expected_cols)} columns after removing empty column, got {len(df.columns)}")
+    
     return df.reset_index(drop=True)
+
 
 def generate_data(sensors_data, body_vitals):
     cleaned_df = remove_irrelevant_data(sensors_data)
