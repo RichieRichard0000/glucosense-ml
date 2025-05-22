@@ -157,21 +157,24 @@ def generate_features(df):
     return features
 
 def remove_irrelevant_data(df):
-    # Handle the leading empty column that's common in your CSV format
-    if df.columns[0] == '' or pd.isna(df.columns[0]) or str(df.columns[0]).strip() == '':
+    # Remove the leading empty column caused by the comma at the start of CSV rows
+    if len(df.columns) > 0 and (df.columns[0] == '' or pd.isna(df.columns[0]) or str(df.columns[0]).strip() == ''):
         df = df.drop(df.columns[0], axis=1)
+        print(f"Removed leading empty column. Now have {len(df.columns)} columns")
     
-    # Now we should have 14 columns
-    expected_cols = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'device', 'time']
-    
-    if len(df.columns) == len(expected_cols):
-        df.columns = expected_cols
-        # Drop irrelevant columns (note: using lowercase 'device' and 'time')
+    # After removing the leading empty column, we should have exactly 14 columns
+    # But we want to treat this as the standard 15-column format
+    if len(df.columns) == 14:
+        # This is the corrected format - assign the proper 14 column names
+        df.columns = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'device', 'time']
+        # Drop the irrelevant columns
         df = df.drop(['SSID', 'device', 'H', 'T', 'time'], axis=1)
     else:
-        raise ValueError(f"Expected {len(expected_cols)} columns after removing empty column, got {len(df.columns)}")
+        raise ValueError(f"After removing leading comma, expected 14 columns but got {len(df.columns)}. Please check CSV format.")
     
+    print(f"Final DataFrame has {len(df.columns)} columns: {list(df.columns)}")
     return df.reset_index(drop=True)
+
 
 
 def generate_data(sensors_data, body_vitals):
