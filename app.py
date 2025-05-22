@@ -205,6 +205,27 @@ def model_status():
             "message": "Failed to load models",
             "error": model_error
         }), 500
+    
+@app.route('/debug-predict', methods=['POST'])
+def debug_predict():
+    try:
+        data = request.json
+        return jsonify({
+            'status': 'success',
+            'received_data': {
+                'keys': list(data.keys()) if data else [],
+                'name': data.get('name', 'missing'),
+                'age': data.get('age', 'missing'),
+                'has_breath_data': 'breathData' in data if data else False,
+                'breath_data_length': len(data.get('breathData', '')) if data and 'breathData' in data else 0
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
