@@ -157,25 +157,10 @@ def generate_features(df):
     return features
 
 def remove_irrelevant_data(df):
-    # Remove the leading empty column caused by the comma at the start of CSV rows
-    if len(df.columns) > 0 and (df.columns[0] == '' or pd.isna(df.columns[0]) or str(df.columns[0]).strip() == ''):
-        df = df.drop(df.columns[0], axis=1)
-        print(f"Removed leading empty column. Now have {len(df.columns)} columns")
-    
-    # After removing the leading empty column, we should have exactly 14 columns
-    # But we want to treat this as the standard 15-column format
-    if len(df.columns) == 14:
-        # This is the corrected format - assign the proper 14 column names
-        df.columns = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'device', 'time']
-        # Drop the irrelevant columns
-        df = df.drop(['SSID', 'device', 'H', 'T', 'time'], axis=1)
-    else:
-        raise ValueError(f"After removing leading comma, expected 14 columns but got {len(df.columns)}. Please check CSV format.")
-    
-    print(f"Final DataFrame has {len(df.columns)} columns: {list(df.columns)}")
+    # Revert to original logic since we're now handling the leading comma in CSV reading
+    df.columns = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'device', 'time']
+    df = df.drop(['SSID', 'device', 'H', 'T', 'time'], axis=1)
     return df.reset_index(drop=True)
-
-
 
 def generate_data(sensors_data, body_vitals):
     cleaned_df = remove_irrelevant_data(sensors_data)
@@ -242,7 +227,6 @@ def debug_predict():
             'error': str(e)
         }), 500
 
-
 @app.route('/predict', methods=['POST'])
 def predict():
     if not models_loaded:
@@ -279,8 +263,9 @@ def predict():
         breath_data_csv = data.get('breathData', None)
         
         if breath_data_csv:
-            # Convert breath data string to DataFrame
-            breath_df = pd.read_csv(io.StringIO(breath_data_csv), skiprows=3)
+            # CRITICAL FIX: Match Streamlit logic exactly
+            # Convert breath data string to DataFrame with .iloc[:, 1:] to remove first column
+            breath_df = pd.read_csv(io.StringIO(breath_data_csv), skiprows=3).iloc[:, 1:]
             
             # Generate features from breath data and body vitals
             test_data = generate_data(breath_df, body_vitals_df)
