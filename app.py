@@ -158,9 +158,25 @@ def generate_features(df):
     return features
 
 def remove_irrelevant_data(df):
-    # Revert to original logic since we're now handling the leading comma in CSV reading
-    df.columns = ['H', 'MQ138', 'MQ2', 'SSID', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822', 'device', 'time']
-    df = df.drop(['SSID', 'device', 'H', 'T', 'time'], axis=1)
+    # FIXED: Match the actual number of columns from your sensor data
+    print(f"DataFrame shape before processing: {df.shape}")
+    print(f"DataFrame columns: {list(df.columns)}")
+    
+    # Your sensor data after skiprows=3 and iloc[:, 1:] has 11 columns
+    # Based on your sensor API: H, MQ138, MQ2, T, TGS2600, TGS2602, TGS2603, TGS2610, TGS2611, TGS2620, TGS822
+    if len(df.columns) == 11:
+        df.columns = ['H', 'MQ138', 'MQ2', 'T', 'TGS2600', 'TGS2602', 'TGS2603', 'TGS2610', 'TGS2611', 'TGS2620', 'TGS822']
+    else:
+        print(f"Unexpected number of columns: {len(df.columns)}")
+        # Handle different column counts gracefully
+        return df.reset_index(drop=True)
+    
+    # Drop irrelevant columns (H and T are not needed for ML processing)
+    df = df.drop(['H', 'T'], axis=1)
+    
+    print(f"DataFrame shape after processing: {df.shape}")
+    print(f"Final columns: {list(df.columns)}")
+    
     return df.reset_index(drop=True)
 
 def generate_data(sensors_data, body_vitals):
@@ -251,6 +267,7 @@ def predict():
             # Read CSV content
             csv_content = csv_file.read().decode('utf-8')
             print(f"CSV content length: {len(csv_content)}")
+            print(f"CSV content preview: {csv_content[:200]}")
             
             # Extract user inputs from patient_details
             name = patient_details.get('name', '')
@@ -297,7 +314,7 @@ def predict():
             print("Processing breath data...")
             # Convert CSV string to DataFrame
             breath_df = pd.read_csv(io.StringIO(csv_content), skiprows=3).iloc[:, 1:]
-            print(f"Breath data shape: {breath_df.shape}")
+            print(f"Breath data shape after processing: {breath_df.shape}")
             
             # Generate features from breath data and body vitals
             test_data = generate_data(breath_df, body_vitals_df)
