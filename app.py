@@ -5,6 +5,7 @@ import pandas as pd
 import pickle
 import os
 import io
+import json
 from scipy.fft import rfft, rfftfreq, irfft
 from scipy.signal import find_peaks
 
@@ -236,17 +237,49 @@ def predict():
         }), 500
     
     try:
-        # Extract user data from request
-        data = request.json
+        print("=== PREDICTION REQUEST START ===")
+        print(f"Request method: {request.method}")
+        print(f"Content-Type: {request.content_type}")
         
-        # Extract user inputs
-        name = data.get('name', '')
-        age = data.get('age', 0)
-        gender = 0 if data.get('gender', 'Male') == 'Male' else 1
-        spo2 = data.get('spo2', 0)
-        diastolic_bp = data.get('diastolicBP', 0)
-        systolic_bp = data.get('systolicBP', 0)
-        heart_rate = data.get('heartRate', 0)
+        # Check if request contains files (FormData) or JSON
+        if 'sensor_data' in request.files:
+            print("Processing FormData request")
+            # Handle FormData from React app
+            patient_details = json.loads(request.form.get('patient_details', '{}'))
+            csv_file = request.files['sensor_data']
+            
+            # Read CSV content
+            csv_content = csv_file.read().decode('utf-8')
+            print(f"CSV content length: {len(csv_content)}")
+            
+            # Extract user inputs from patient_details
+            name = patient_details.get('name', '')
+            age = patient_details.get('age', 0)
+            gender = 0 if patient_details.get('gender', 'Male') == 'Male' else 1
+            spo2 = patient_details.get('spo2', 0)
+            diastolic_bp = patient_details.get('diastolicBP', 0)
+            systolic_bp = patient_details.get('systolicBP', 0)
+            heart_rate = patient_details.get('heartRate', 0)
+            
+        else:
+            print("Processing JSON request")
+            # Handle JSON data (existing logic)
+            data = request.json
+            print(f"JSON data keys: {list(data.keys()) if data else 'No JSON data'}")
+            
+            csv_content = data.get('breathData', None)
+            
+            # Extract user inputs
+            name = data.get('name', '')
+            age = data.get('age', 0)
+            gender = 0 if data.get('gender', 'Male') == 'Male' else 1
+            spo2 = data.get('spo2', 0)
+            diastolic_bp = data.get('diastolicBP', 0)
+            systolic_bp = data.get('systolicBP', 0)
+            heart_rate = data.get('heartRate', 0)
+        
+        print(f"Patient data - Name: {name}, Age: {age}, Gender: {gender}")
+        print(f"Vitals - SPO2: {spo2}, BP: {systolic_bp}/{diastolic_bp}, HR: {heart_rate}")
         
         # Create body vitals DataFrame
         body_vitals = {
@@ -259,23 +292,25 @@ def predict():
         }
         body_vitals_df = pd.DataFrame(body_vitals)
         
-        # Process breath data if provided
-        breath_data_csv = data.get('breathData', None)
-        
-        if breath_data_csv:
-            # CRITICAL FIX: Match Streamlit logic exactly
-            # Convert breath data string to DataFrame with .iloc[:, 1:] to remove first column
-            breath_df = pd.read_csv(io.StringIO(breath_data_csv), skiprows=3).iloc[:, 1:]
+        # Process CSV data
+        if csv_content:
+            print("Processing breath data...")
+            # Convert CSV string to DataFrame
+            breath_df = pd.read_csv(io.StringIO(csv_content), skiprows=3).iloc[:, 1:]
+            print(f"Breath data shape: {breath_df.shape}")
             
             # Generate features from breath data and body vitals
             test_data = generate_data(breath_df, body_vitals_df)
+            print("Features generated successfully")
             
             # Perform feature selection
             reduced_features = perform_feature_selection(test_data)
+            print("Feature selection completed")
             
             # Get diabetes classification and BGL prediction
             diabetes_result = perform_diabetes_test(reduced_features)
             bgl_result = perform_bgl_test(reduced_features)
+            print(f"Prediction results - Diabetes: {diabetes_result}, BGL: {bgl_result}")
             
             # Return prediction results
             return jsonify({
@@ -295,14 +330,23 @@ def predict():
         else:
             return jsonify({
                 'status': 'error',
-                'message': 'Breath data is required for prediction'
+                'message': 'Sensor data is required for prediction'
             }), 400
     
     except Exception as e:
+        print("=== PREDICTION ERROR ===")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        
+        import traceback
+        print("Full traceback:")
+        traceback.print_exc()
+        print("=== END ERROR ===")
+        
         return jsonify({
             'status': 'error',
-            'message': 'Prediction failed',
-            'error': str(e)
+            'message': f'Prediction failed: {str(e)}',
+            'error_type': type(e).__name__
         }), 500
 
 if __name__ == '__main__':
